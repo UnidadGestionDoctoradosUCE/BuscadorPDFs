@@ -1,0 +1,26 @@
+[
+  {
+    "usuario": "5697b4b21d1fab7bdeeaf6e3a12b3a4101e56a4190d12a1388087f5028224428",
+    "contrasena": "d36dcff5f63d4b20c3e1391788dd207a5d026d783c5974d06b1e47abf1dab9cb",
+    "nombre": "Andrés Herrera",
+    "rol": "Administrador"
+  },
+  {
+    "usuario": "bd82593d2dd6369b885cd6e215e7404e00726befbfaa606ffbce4dab28c9503a",
+    "contrasena": "d36dcff5f63d4b20c3e1391788dd207a5d026d783c5974d06b1e47abf1dab9cb",
+    "nombre": "Paulo Lovato",
+    "rol": "Administrador"
+  },
+  {
+    "usuario": "65185f0e0723ddc6e04160e3049e51183aaf28e29d0fe23248cce0f847dfaff6",
+    "contrasena": "d36dcff5f63d4b20c3e1391788dd207a5d026d783c5974d06b1e47abf1dab9cb",
+    "nombre": "Abigail Núñez",
+    "rol": "Administrador"
+  },
+  {
+    "usuario": "20aa9a493079d55ff287deaca826a3a77ba4e9003ffb45e4fb013ae8d1cee436",
+    "contrasena": "d36dcff5f63d4b20c3e1391788dd207a5d026d783c5974d06b1e47abf1dab9cb",
+    "nombre": "Galo Hernandéz",
+    "rol": "Administrador"
+  }
+]
