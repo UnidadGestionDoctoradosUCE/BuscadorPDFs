@@ -1,3 +1,5 @@
+import time
+from datetime import datetime
 import os
 import fitz  
 import tkinter as tk
@@ -7,10 +9,31 @@ from PIL import Image, ImageTk
 import json
 from datetime import datetime
 import hashlib
+import string
+import sys
 
-ruta_drive = r'G:\Mi unidad\Doctorados\DB_General\Universidad'
 documentos_drive = []
 ruta_por_iid = {} 
+
+def encontrar_ruta_drive():
+    for letra in string.ascii_uppercase:
+        posible_ruta = f"{letra}:\\Mi unidad\\Doctorados\\DB_General\\Universidad"
+        if os.path.exists(posible_ruta):
+            return posible_ruta
+    return None
+
+def resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
+ruta_drive = encontrar_ruta_drive()
+
+if ruta_drive is None:
+    print("No se encontró la ruta de Doctorados.")
+else:
+    print(f"Ruta encontrada:\n{ruta_drive}")
 
 items_clave = {
     "1. Hoja de Vida": ["h.vida"],
@@ -55,12 +78,6 @@ def cargar_documentos(ruta):
                     'ruta': ruta_completa
                 })
     return documentos
-
-def registrar_acceso(usuario, ruta_log=r'C:\Users\user\Pictures\BuscadorPDFs\AppBuscador\Logs\accesos.log'):
-    ahora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    linea = f"{ahora} - Usuario: {usuario}\n"
-    with open(ruta_log, 'a', encoding='utf-8') as f:
-        f.write(linea)
 
 def actualizar_universidades():
     universidades = sorted(set(doc['universidad'] for doc in documentos_drive))
@@ -226,16 +243,20 @@ def crear_encabezado(ventana):
     frame.pack(pady=10)
 
     try:
-        imagen_logo = Image.open("logouce.png")
+        ruta_imagen = resource_path("imagenes/logouce.png")
+        imagen_logo = Image.open(ruta_imagen)
         imagen_logo = imagen_logo.resize((120, 120), Image.LANCZOS)
-        logo_tk = ImageTk.PhotoImage(imagen_logo)
-        etiqueta_logo = tk.Label(frame, image=logo_tk, bg="#e8f0f7")
-        etiqueta_logo.image = logo_tk  # Mantener referencia
+
+        ventana.logo_img = ImageTk.PhotoImage(imagen_logo)  # Usar SIEMPRE el mismo nombre
+
+        etiqueta_logo = tk.Label(frame, image=ventana.logo_img, bg="#e8f0f7")
         etiqueta_logo.pack(side="left", padx=20)
+
     except Exception as e:
         print("No se pudo cargar el logo:", e)
 
     tk.Label(frame, text="Buscador de Doctorados", font=("Segoe UI", 28, "bold"), bg="#e8f0f7").pack(side="left", padx=10)
+
     return frame
 
 def crear_resumen(ventana):
@@ -318,7 +339,7 @@ def crear_texto_detalles(ventana):
     texto_detalles.config(state="disabled")
 
 def verificar_credenciales(usuario, contrasena):
-    ruta_json = r'C:\Users\user\Pictures\BuscadorPDFs\AppBuscador\Users\usuarios.json'
+    ruta_json = resource_path("data/usuarios.json")
     try:
         with open(ruta_json, 'r', encoding='utf-8') as f:
             lista_usuarios = json.load(f)
@@ -347,7 +368,10 @@ def verificar_credenciales(usuario, contrasena):
 
 def mostrar_login():
     global login_win, entrada_usuario, entrada_contra
-
+    if ruta_drive is None:
+        messagebox.showwarning("Advertencia", "No se encontró la ruta de Doctorados.")
+    else:
+        messagebox.showinfo("Información", f"Ruta encontrada:\n{ruta_drive}")
     login_win = tk.Tk()
     login_win.title("Unidad Administrativa de Gestión de Doctorados")
     login_win.state('zoomed')  # Ventana maximizada con botones de control
@@ -370,11 +394,11 @@ def mostrar_login():
 
     # Logo superior
     try:
-        imagen_logo = Image.open("logouce.png")
+        ruta_imagen = resource_path("imagenes/logouce.png")
+        imagen_logo = Image.open(ruta_imagen)
         imagen_logo = imagen_logo.resize((130, 130), Image.LANCZOS)
-        logo_tk = ImageTk.PhotoImage(imagen_logo)
-        etiqueta_logo = tk.Label(frame, image=logo_tk, bg="#f2f2f2")
-        etiqueta_logo.image = logo_tk
+        login_win.logo_img = ImageTk.PhotoImage(imagen_logo)  # Guardar referencia en login_win
+        etiqueta_logo = tk.Label(frame, image=login_win.logo_img, bg="#f2f2f2")
         etiqueta_logo.pack(pady=(0, 10))
     except Exception as e:
         print("No se pudo cargar el logo:", e)
@@ -422,14 +446,59 @@ def mostrar_login():
 
     login_win.mainloop()
 
+def mostrar_carga_y_abrir_main(nombre_usuario):
+    carga_win = tk.Toplevel()
+    carga_win.title("Cargando Sistema...")
+    carga_win.state('zoomed')  # Pantalla completa
+    carga_win.configure(bg="#f2f2f2")
+    carga_win.attributes('-topmost', True)
+
+    # Estilo
+    style = ttk.Style(carga_win)
+    style.theme_use('clam')
+    style.configure('TLabel', font=('Segoe UI', 16), background="#f2f2f2", foreground="#2e4a62")
+    style.configure('Titulo.TLabel', font=('Segoe UI', 36, 'bold'), background="#f2f2f2", foreground="#2e4a62")
+    style.configure('Subtitulo.TLabel', font=('Segoe UI', 20), background="#f2f2f2", foreground="#2e4a62")
+    style.configure('Usuario.TLabel', font=('Segoe UI', 14), background="#f2f2f2", foreground="#2e4a62")
+    style.configure('TProgressbar', thickness=20)
+
+    # Frame centrado
+    frame = tk.Frame(carga_win, bg="#f2f2f2")
+    frame.place(relx=0.5, rely=0.5, anchor='center')
+
+    # Título
+    ttk.Label(frame, text="CARGANDO SISTEMA", style='Titulo.TLabel').pack(pady=(20, 10))
+    ttk.Label(frame, text="Bienvenido al Buscador de Expedientes\nUnidad Administrativa de Gestión de Doctorados", style='Subtitulo.TLabel', justify='center').pack(pady=(0, 20))
+
+    # Nombre de usuario y hora
+    hora_actual = datetime.now().strftime("%d/%m/%Y - %H:%M:%S")
+    ttk.Label(frame, text=f"Usuario: {nombre_usuario}", style='Usuario.TLabel').pack(pady=(0, 5))
+    ttk.Label(frame, text=f"Hora de ingreso: {hora_actual}", style='Usuario.TLabel').pack(pady=(0, 15))
+
+    # Barra de progreso
+    barra = ttk.Progressbar(frame, mode='indeterminate', length=600)
+    barra.pack(pady=20)
+    barra.start(10)
+
+    # Modal
+    carga_win.grab_set()
+
+    def finalizar_carga():
+        barra.stop()
+        carga_win.grab_release()
+        carga_win.destroy()
+        main()
+
+    # Simula 3 seg de carga
+    carga_win.after(3000, finalizar_carga)
+
 def intentar_login():
     usuario = entrada_usuario.get().strip()
     contrasena = entrada_contra.get().strip()
     valido, nombre = verificar_credenciales(usuario, contrasena)
     if valido:
-        registrar_acceso(usuario)
-        login_win.destroy()
-        main()
+        login_win.withdraw()  # ocultar ventana login sin destruirla
+        mostrar_carga_y_abrir_main(nombre)
     else:
         messagebox.showerror("Acceso denegado", "Usuario o contraseña incorrectos.")
 
@@ -461,5 +530,3 @@ def main():
 
 if __name__ == "__main__":
     mostrar_login()
-
-
