@@ -475,13 +475,29 @@ def intentar_login(ventana):
     else:
         messagebox.showerror("Acceso denegado", "Usuario o contraseña incorrectos.")
 
+def mostrar_seleccion(ventana, nombre_usuario):
+    limpiar_ventana(ventana)
+    ventana.title("Seleccione una opción")
+    ventana.state('zoomed')
+    ventana.configure(bg="#e8f0f7")
+
+    frame = tk.Frame(ventana, bg="#e8f0f7")
+    frame.place(relx=0.5, rely=0.5, anchor='center')
+
+    tk.Label(frame, text=f"Bienvenido, {nombre_usuario}", font=("Segoe UI", 18, "bold"), bg="#e8f0f7").pack(pady=(0, 20))
+    tk.Label(frame, text="¿Qué desea consultar?", font=("Segoe UI", 16), bg="#e8f0f7").pack(pady=(0, 30))
+
+    btn_docentes = ttk.Button(frame, text="Docentes", width=20, command=lambda: main_docentes(ventana))
+    btn_docentes.pack(pady=10)
+    btn_oficios = ttk.Button(frame, text="Oficios", width=20, command=lambda: main_oficios(ventana))
+    btn_oficios.pack(pady=10)
+
 def mostrar_carga_y_abrir_main(ventana, nombre_usuario):
     limpiar_ventana(ventana)
     ventana.title("Cargando Sistema...")
     ventana.state('zoomed')
-    ventana.configure(bg="#f2f2f2")
+    ventana.configure(bg="#f2f2f7")
 
-    # Estilo
     style = ttk.Style(ventana)
     style.theme_use('clam')
     style.configure('TLabel', font=('Segoe UI', 16), background="#f2f2f2", foreground="#2e4a62")
@@ -490,20 +506,16 @@ def mostrar_carga_y_abrir_main(ventana, nombre_usuario):
     style.configure('Usuario.TLabel', font=('Segoe UI', 14), background="#f2f2f2", foreground="#2e4a62")
     style.configure('TProgressbar', thickness=20)
 
-    # Frame centrado
     frame = tk.Frame(ventana, bg="#f2f2f2")
     frame.place(relx=0.5, rely=0.5, anchor='center')
 
-    # Título
     ttk.Label(frame, text="CARGANDO SISTEMA", style='Titulo.TLabel').pack(pady=(20, 10))
     ttk.Label(frame, text="Bienvenido al Buscador de Expedientes\nUnidad Administrativa de Gestión de Doctorados", style='Subtitulo.TLabel', justify='center').pack(pady=(0, 20))
 
-    # Nombre de usuario y hora
     hora_actual = datetime.now().strftime("%d/%m/%Y - %H:%M:%S")
     ttk.Label(frame, text=f"Usuario: {nombre_usuario}", style='Usuario.TLabel').pack(pady=(0, 5))
     ttk.Label(frame, text=f"Hora de ingreso: {hora_actual}", style='Usuario.TLabel').pack(pady=(0, 15))
 
-    # Barra de progreso
     barra = ttk.Progressbar(frame, mode='indeterminate', length=600)
     barra.pack(pady=20)
     barra.start(10)
@@ -511,16 +523,197 @@ def mostrar_carga_y_abrir_main(ventana, nombre_usuario):
     def finalizar_carga():
         barra.stop()
         frame.destroy()
-        main(ventana)
+        mostrar_seleccion(ventana, nombre_usuario)
 
     ventana.after(3000, finalizar_carga)
+
+def main_docentes(ventana):
+    limpiar_ventana(ventana)
+    # Botón de navegación arriba
+    nav_frame = tk.Frame(ventana, bg="#e8f0f7")
+    nav_frame.pack(fill='x', pady=(10, 0))
+    btn_volver_seleccion = ttk.Button(nav_frame, text="Volver a selección", command=lambda: mostrar_seleccion(ventana, ""))
+    btn_volver_seleccion.pack(side='left', padx=10)
+    # Resto del buscador
+    main(ventana, skip_clear=True)
+
+def main_oficios(ventana):
+    limpiar_ventana(ventana)
+    # Botón de navegación arriba
+    nav_frame = tk.Frame(ventana, bg="#e8f0f7")
+    nav_frame.pack(fill='x', pady=(10, 0))
+    btn_volver_seleccion = ttk.Button(nav_frame, text="Volver a selección", command=lambda: mostrar_seleccion(ventana, ""))
+    btn_volver_seleccion.pack(side='left', padx=10)
+    global documentos_drive
+    documentos_drive = cargar_documentos(ruta_drive)
+    ventana.title("Buscador de Oficios")
+    ventana.state('zoomed')
+    ventana.configure(bg="#e8f0f7")
+    configurar_estilos()
+    crear_encabezado(ventana)
+    global etiqueta_resumen_oficios
+    etiqueta_resumen_oficios = crear_resumen(ventana)
+    crear_filtros_oficios(ventana)
+    crear_entrada_oficio(ventana)
+    crear_botones_oficios(ventana)
+    crear_texto_detalles_oficio(ventana)
+    crear_resultados_oficios(ventana)
+    actualizar_universidades_oficios()
+    combo_universidad_oficio.bind("<<ComboboxSelected>>", lambda e: actualizar_programas_oficios())
+    combo_programa_oficio.bind("<<ComboboxSelected>>", lambda e: actualizar_estudiantes_oficios())
+    combo_estudiante_oficio.bind("<<ComboboxSelected>>", lambda e: None)
+    combo_item_clave_oficio['values'] = ['Oficios']
+    combo_item_clave_oficio.set('Oficios')
+    etiqueta_resumen_oficios.config(text="Mostrando 0 oficios.")
+
+def crear_filtros_oficios(ventana):
+    frame = tk.Frame(ventana, bg="#e8f0f7")
+    frame.pack(pady=10)
+    def crear_etiqueta(texto, fila, columna):
+        tk.Label(frame, text=texto, font=('Segoe UI', 11), bg="#e8f0f7").grid(row=fila, column=columna, padx=5, pady=3)
+    crear_etiqueta("Universidad:", 0, 0)
+    global combo_universidad_oficio
+    combo_universidad_oficio = ttk.Combobox(frame, width=25, state="readonly")
+    combo_universidad_oficio.grid(row=0, column=1)
+    crear_etiqueta("Programa:", 0, 2)
+    global combo_programa_oficio
+    combo_programa_oficio = ttk.Combobox(frame, width=25, state="readonly")
+    combo_programa_oficio.grid(row=0, column=3)
+    crear_etiqueta("Estudiante:", 0, 4)
+    global combo_estudiante_oficio
+    combo_estudiante_oficio = ttk.Combobox(frame, width=25, state="readonly")
+    combo_estudiante_oficio.grid(row=0, column=5)
+    crear_etiqueta("Filtro ítem clave:", 0, 6)
+    global combo_item_clave_oficio
+    combo_item_clave_oficio = ttk.Combobox(frame, width=25, state="readonly")
+    combo_item_clave_oficio.grid(row=0, column=7)
+    return combo_universidad_oficio, combo_programa_oficio, combo_estudiante_oficio, combo_item_clave_oficio
+
+def crear_entrada_oficio(ventana):
+    global entrada_num_oficio, entrada_fecha_oficio
+    tk.Label(ventana, text="Buscar por número de oficio:", font=("Segoe UI", 12), bg="#e8f0f7").pack(pady=(10, 0))
+    entrada_num_oficio = tk.Entry(ventana, width=30, font=("Segoe UI", 12), relief="solid", bd=1)
+    entrada_num_oficio.pack(pady=4)
+    tk.Label(ventana, text="Buscar por fecha (formato libre):", font=("Segoe UI", 12), bg="#e8f0f7").pack(pady=(10, 0))
+    entrada_fecha_oficio = tk.Entry(ventana, width=30, font=("Segoe UI", 12), relief="solid", bd=1)
+    entrada_fecha_oficio.pack(pady=4)
+
+def crear_botones_oficios(ventana):
+    frame = tk.Frame(ventana, bg="#e8f0f7")
+    frame.pack(pady=10)
+    btn_buscar = ttk.Button(frame, text="Buscar", command=buscar_oficios)
+    btn_buscar.grid(row=0, column=0, padx=10)
+    btn_volver = ttk.Button(frame, text="Volver", command=lambda: mostrar_seleccion(ventana, ""))
+    btn_volver.grid(row=0, column=1, padx=10)
+
+def crear_resultados_oficios(ventana):
+    global resultados_oficios
+    columnas = ("Universidad", "Programa", "Estudiante", "Nombre")
+    resultados_oficios = ttk.Treeview(ventana, columns=columnas, show="headings", height=25)
+    resultados_oficios.pack(padx=20, pady=10, fill="both", expand=True)
+    for col in columnas:
+        resultados_oficios.heading(col, text=col)
+        resultados_oficios.column(col, anchor="center", width=200)
+    resultados_oficios.tag_configure('oddrow', background="white")
+    resultados_oficios.tag_configure('evenrow', background="#d3d3d3")
+    resultados_oficios.bind("<<TreeviewSelect>>", mostrar_detalles_oficio)
+
+def crear_texto_detalles_oficio(ventana):
+    global texto_detalles_oficio
+    tk.Label(ventana, text="Detalles del oficio seleccionado:", font=("Segoe UI", 12), bg="#e8f0f7").pack()
+    texto_detalles_oficio = tk.Text(ventana, height=4, width=100, font=("Segoe UI", 11), relief="solid", bd=1)
+    texto_detalles_oficio.pack(padx=40, pady=(0, 25), fill='x')
+    texto_detalles_oficio.config(state="disabled")
+
+def actualizar_universidades_oficios():
+    universidades = sorted(set(doc['universidad'] for doc in documentos_drive if 'oficio' in doc['nombre']))
+    combo_universidad_oficio['values'] = ['(Todos)'] + universidades
+    combo_universidad_oficio.set('(Todos)')
+    actualizar_programas_oficios()
+
+def actualizar_programas_oficios():
+    u = combo_universidad_oficio.get()
+    docs = [doc for doc in documentos_drive if 'oficio' in doc['nombre']]
+    if u == '(Todos)':
+        programas = sorted(set(doc['programa'] for doc in docs))
+    else:
+        programas = sorted(set(doc['programa'] for doc in docs if doc['universidad'] == u))
+    combo_programa_oficio['values'] = ['(Todos)'] + programas
+    combo_programa_oficio.set('(Todos)')
+    actualizar_estudiantes_oficios()
+
+def actualizar_estudiantes_oficios():
+    u = combo_universidad_oficio.get()
+    p = combo_programa_oficio.get()
+    docs = [doc for doc in documentos_drive if 'oficio' in doc['nombre']]
+    estudiantes = set()
+    for doc in docs:
+        if (u == '(Todos)' or doc['universidad'] == u) and (p == '(Todos)' or doc['programa'] == p):
+            estudiantes.add(doc['estudiante'])
+    combo_estudiante_oficio['values'] = ['(Todos)'] + sorted(estudiantes)
+    combo_estudiante_oficio.set('(Todos)')
+
+def buscar_oficios():
+    resultados_oficios.delete(*resultados_oficios.get_children())
+    filtro_u = combo_universidad_oficio.get()
+    filtro_p = combo_programa_oficio.get()
+    filtro_e = combo_estudiante_oficio.get()
+    filtro_num = entrada_num_oficio.get().strip().lower()
+    filtro_fecha = entrada_fecha_oficio.get().strip().lower()
+    docs = [doc for doc in documentos_drive if 'oficio' in doc['nombre']]
+    encontrados = []
+    for d in docs:
+        if (filtro_u == '(Todos)' or d['universidad'] == filtro_u) and \
+           (filtro_p == '(Todos)' or d['programa'] == filtro_p) and \
+           (filtro_e == '(Todos)' or d['estudiante'] == filtro_e):
+            # Filtrar por número de oficio y fecha (en el nombre)
+            if (filtro_num in d['nombre']) and (filtro_fecha in d['nombre']):
+                encontrados.append(d)
+    if not encontrados:
+        messagebox.showinfo("No encontrado", "No se encontró ningún oficio con los filtros aplicados.")
+        etiqueta_resumen_oficios.config(text="Mostrando 0 oficios.")
+        limpiar_detalles_oficio()
+        return
+    for i, doc in enumerate(encontrados):
+        tag = 'evenrow' if i % 2 == 0 else 'oddrow'
+        resultados_oficios.insert("", "end", values=(
+            doc['universidad'].title(),
+            doc['programa'].title(),
+            doc['estudiante'].title(),
+            doc['nombre'].title()
+        ), tags=(tag,))
+    etiqueta_resumen_oficios.config(text=f"Mostrando {len(encontrados)} oficio(s).")
+    limpiar_detalles_oficio()
+
+def mostrar_detalles_oficio(event):
+    item = resultados_oficios.focus()
+    if item:
+        valores = resultados_oficios.item(item, 'values')
+        info = (
+            f"Universidad: {valores[0]}\n"
+            f"Programa: {valores[1]}\n"
+            f"Estudiante: {valores[2]}\n"
+            f"Nombre: {valores[3]}\n"
+        )
+        texto_detalles_oficio.config(state='normal')
+        texto_detalles_oficio.delete('1.0', tk.END)
+        texto_detalles_oficio.insert(tk.END, info)
+        texto_detalles_oficio.config(state='disabled')
+    else:
+        limpiar_detalles_oficio()
+
+def limpiar_detalles_oficio():
+    texto_detalles_oficio.config(state='normal')
+    texto_detalles_oficio.delete('1.0', tk.END)
+    texto_detalles_oficio.config(state='disabled')
 
 def cerrar_sesion(ventana):
     if messagebox.askyesno("Cerrar Sesión", "¿Estás seguro de que quieres cerrar sesión?"):
         mostrar_login(ventana)
 
-def main(ventana):
-    limpiar_ventana(ventana)
+def main(ventana, skip_clear=False):
+    if not skip_clear:
+        limpiar_ventana(ventana)
     global documentos_drive
     documentos_drive = cargar_documentos(ruta_drive)
     ventana.title("Buscador de Doctorados")
