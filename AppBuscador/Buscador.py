@@ -15,6 +15,10 @@ import sys
 documentos_drive = []
 ruta_por_iid = {} 
 
+# Variables globales para mantener la referencia de las imágenes
+logo_img_global = None
+login_logo_img_global = None
+
 def encontrar_ruta_drive():
     for letra in string.ascii_uppercase:
         posible_ruta = f"{letra}:\\Mi unidad\\Doctorados\\DB_General\\Universidad"
@@ -58,6 +62,8 @@ items_clave = {
 }
 
 def cargar_documentos(ruta):
+    if not ruta:
+        return []
     documentos = []
     for carpeta, _, archivos in os.walk(ruta):
         for archivo in archivos:
@@ -218,44 +224,50 @@ def limpiar_detalles():
 def abrir_pdf_event(event):
     abrir_pdf()
 
-def configurar_ventana_principal():
-    ventana = tk.Tk()
-    ventana.title("Buscador de Doctorados")
-    ventana.geometry("1100x650")
-    ventana.state('zoomed')
-    ventana.configure(bg="#e8f0f7")
-    return ventana
-
-def configurar_estilos():
-    style = ttk.Style()
-    style.theme_use('clam')
-    style.configure("Treeview",
-                    background="#f9f9f9",
-                    foreground="black",
-                    rowheight=28,
-                    fieldbackground="#f9f9f9",
-                    font=('Segoe UI', 11))
-    style.map('Treeview', background=[('selected', '#347083')], foreground=[('selected', 'white')])
-    style.configure('TButton', font=('Segoe UI', 12), padding=6)
+def sincronizar_drive(ventana):
+    global documentos_drive
+    if not ruta_drive:
+        documentos_drive = []
+        actualizar_universidades()
+        buscar()
+        messagebox.showinfo("Sincronización", "No se encontró la ruta del drive. No hay documentos cargados.")
+        return
+    documentos_drive = cargar_documentos(ruta_drive)
+    actualizar_universidades()
+    buscar()
+    messagebox.showinfo("Sincronización", "¡Sincronización completada! Los documentos han sido actualizados.")
 
 def crear_encabezado(ventana):
     frame = tk.Frame(ventana, bg="#e8f0f7")
-    frame.pack(pady=10)
+    frame.pack(pady=10, fill="x")
+
+    # Frame izquierdo para logo y botón de sincronizar
+    frame_izquierdo = tk.Frame(frame, bg="#e8f0f7")
+    frame_izquierdo.pack(side="left", padx=10)
 
     try:
         ruta_imagen = resource_path("imagenes/logouce.png")
         imagen_logo = Image.open(ruta_imagen)
         imagen_logo = imagen_logo.resize((120, 120), Image.LANCZOS)
-
-        ventana.logo_img = ImageTk.PhotoImage(imagen_logo)  # Usar SIEMPRE el mismo nombre
-
-        etiqueta_logo = tk.Label(frame, image=ventana.logo_img, bg="#e8f0f7")
-        etiqueta_logo.pack(side="left", padx=20)
-
+        ventana.logo_img = ImageTk.PhotoImage(imagen_logo)
+        etiqueta_logo = tk.Label(frame_izquierdo, image=ventana.logo_img, bg="#e8f0f7")
+        etiqueta_logo.pack(side="left", padx=(0,10))
     except Exception as e:
         print("No se pudo cargar el logo:", e)
 
-    tk.Label(frame, text="Buscador de Doctorados", font=("Segoe UI", 28, "bold"), bg="#e8f0f7").pack(side="left", padx=10)
+    btn_sincronizar = ttk.Button(frame_izquierdo, text="Sincronizar", command=lambda: sincronizar_drive(ventana), style='Sincronizar.TButton')
+    btn_sincronizar.pack(side="left", padx=(0,10), pady=10)
+
+    # Frame central para el nombre de la app
+    frame_centro = tk.Frame(frame, bg="#e8f0f7")
+    frame_centro.pack(side="left", expand=True)
+    tk.Label(frame_centro, text="Buscador de Doctorados", font=("Segoe UI", 28, "bold"), bg="#e8f0f7").pack(expand=True)
+
+    # Frame derecho para el botón de cerrar sesión
+    frame_derecho = tk.Frame(frame, bg="#e8f0f7")
+    frame_derecho.pack(side="right", padx=20)
+    btn_cerrar_sesion = ttk.Button(frame_derecho, text="Cerrar Sesión", command=lambda: cerrar_sesion(ventana), style='CerrarSesion.TButton')
+    btn_cerrar_sesion.pack(pady=10)
 
     return frame
 
@@ -366,16 +378,15 @@ def verificar_credenciales(usuario, contrasena):
         messagebox.showerror("Error", f"No se pudo verificar credenciales:\n{e}")
         return False, None
 
-def mostrar_login():
-    global login_win, entrada_usuario, entrada_contra
-    if ruta_drive is None:
-        messagebox.showwarning("Advertencia", "No se encontró la ruta de Doctorados.")
-    else:
-        messagebox.showinfo("Información", f"Ruta encontrada:\n{ruta_drive}")
-    login_win = tk.Tk()
-    login_win.title("Unidad Administrativa de Gestión de Doctorados")
-    login_win.state('zoomed')  # Ventana maximizada con botones de control
-    login_win.configure(bg="#f2f2f2")
+def limpiar_ventana(ventana):
+    for widget in ventana.winfo_children():
+        widget.destroy()
+
+def mostrar_login(ventana):
+    limpiar_ventana(ventana)
+    ventana.title("Unidad Administrativa de Gestión de Doctorados")
+    ventana.state('zoomed')
+    ventana.configure(bg="#f2f2f2")
 
     # Estilos
     style = ttk.Style()
@@ -385,7 +396,7 @@ def mostrar_login():
     style.configure('TEntry', padding=6)
 
     # Fondo para centrar el contenido
-    fondo = tk.Frame(login_win, bg="#f2f2f2")
+    fondo = tk.Frame(ventana, bg="#f2f2f2")
     fondo.pack(fill='both', expand=True)
 
     # Frame principal centrado
@@ -397,8 +408,8 @@ def mostrar_login():
         ruta_imagen = resource_path("imagenes/logouce.png")
         imagen_logo = Image.open(ruta_imagen)
         imagen_logo = imagen_logo.resize((130, 130), Image.LANCZOS)
-        login_win.logo_img = ImageTk.PhotoImage(imagen_logo)  # Guardar referencia en login_win
-        etiqueta_logo = tk.Label(frame, image=login_win.logo_img, bg="#f2f2f2")
+        ventana.logo_img = ImageTk.PhotoImage(imagen_logo)
+        etiqueta_logo = tk.Label(frame, image=ventana.logo_img, bg="#f2f2f2")
         etiqueta_logo.pack(pady=(0, 10))
     except Exception as e:
         print("No se pudo cargar el logo:", e)
@@ -411,6 +422,7 @@ def mostrar_login():
     fila_usuario.pack(pady=10)
 
     tk.Label(fila_usuario, text="Usuario:", font=("Segoe UI", 12), bg="#f2f2f2", width=12, anchor='e').pack(side='left')
+    global entrada_usuario
     entrada_usuario = tk.Entry(fila_usuario, font=("Segoe UI", 12), width=30, relief="solid", bd=1)
     entrada_usuario.pack(side='left')
 
@@ -423,6 +435,7 @@ def mostrar_login():
     subframe_contra = tk.Frame(fila_contra, bg="#f2f2f2")
     subframe_contra.pack(side='left')
 
+    global entrada_contra
     entrada_contra = tk.Entry(subframe_contra, font=("Segoe UI", 12), show="*", width=27, relief="solid", bd=1)
     entrada_contra.pack(side="left")
 
@@ -442,19 +455,34 @@ def mostrar_login():
     boton_ojo.pack(side="left", padx=(5, 0))
 
     # Botón de login
-    ttk.Button(frame, text="Ingresar", command=intentar_login).pack(pady=25)
+    btn_ingresar = ttk.Button(frame, text="Ingresar", command=lambda: intentar_login(ventana))
+    btn_ingresar.pack(pady=25)
 
-    login_win.mainloop()
+    # Permitir ingresar con Enter
+    ventana.bind('<Return>', lambda event: intentar_login(ventana))
 
-def mostrar_carga_y_abrir_main(nombre_usuario):
-    carga_win = tk.Toplevel()
-    carga_win.title("Cargando Sistema...")
-    carga_win.state('zoomed')  # Pantalla completa
-    carga_win.configure(bg="#f2f2f2")
-    carga_win.attributes('-topmost', True)
+def intentar_login(ventana):
+    # Mostrar advertencia o información sobre la ruta del drive al intentar ingresar
+    if ruta_drive is None:
+        messagebox.showwarning("Advertencia", "No se encontró la ruta de Doctorados.")
+    else:
+        messagebox.showinfo("Información", f"Ruta encontrada:\n{ruta_drive}")
+    usuario = entrada_usuario.get().strip()
+    contrasena = entrada_contra.get().strip()
+    valido, nombre = verificar_credenciales(usuario, contrasena)
+    if valido:
+        mostrar_carga_y_abrir_main(ventana, nombre)
+    else:
+        messagebox.showerror("Acceso denegado", "Usuario o contraseña incorrectos.")
+
+def mostrar_carga_y_abrir_main(ventana, nombre_usuario):
+    limpiar_ventana(ventana)
+    ventana.title("Cargando Sistema...")
+    ventana.state('zoomed')
+    ventana.configure(bg="#f2f2f2")
 
     # Estilo
-    style = ttk.Style(carga_win)
+    style = ttk.Style(ventana)
     style.theme_use('clam')
     style.configure('TLabel', font=('Segoe UI', 16), background="#f2f2f2", foreground="#2e4a62")
     style.configure('Titulo.TLabel', font=('Segoe UI', 36, 'bold'), background="#f2f2f2", foreground="#2e4a62")
@@ -463,7 +491,7 @@ def mostrar_carga_y_abrir_main(nombre_usuario):
     style.configure('TProgressbar', thickness=20)
 
     # Frame centrado
-    frame = tk.Frame(carga_win, bg="#f2f2f2")
+    frame = tk.Frame(ventana, bg="#f2f2f2")
     frame.place(relx=0.5, rely=0.5, anchor='center')
 
     # Título
@@ -480,32 +508,24 @@ def mostrar_carga_y_abrir_main(nombre_usuario):
     barra.pack(pady=20)
     barra.start(10)
 
-    # Modal
-    carga_win.grab_set()
-
     def finalizar_carga():
         barra.stop()
-        carga_win.grab_release()
-        carga_win.destroy()
-        main()
+        frame.destroy()
+        main(ventana)
 
-    # Simula 3 seg de carga
-    carga_win.after(3000, finalizar_carga)
+    ventana.after(3000, finalizar_carga)
 
-def intentar_login():
-    usuario = entrada_usuario.get().strip()
-    contrasena = entrada_contra.get().strip()
-    valido, nombre = verificar_credenciales(usuario, contrasena)
-    if valido:
-        login_win.withdraw()  # ocultar ventana login sin destruirla
-        mostrar_carga_y_abrir_main(nombre)
-    else:
-        messagebox.showerror("Acceso denegado", "Usuario o contraseña incorrectos.")
+def cerrar_sesion(ventana):
+    if messagebox.askyesno("Cerrar Sesión", "¿Estás seguro de que quieres cerrar sesión?"):
+        mostrar_login(ventana)
 
-def main():
+def main(ventana):
+    limpiar_ventana(ventana)
     global documentos_drive
     documentos_drive = cargar_documentos(ruta_drive)
-    ventana = configurar_ventana_principal()
+    ventana.title("Buscador de Doctorados")
+    ventana.state('zoomed')
+    ventana.configure(bg="#e8f0f7")
     configurar_estilos()
     crear_encabezado(ventana)
     global etiqueta_resumen
@@ -513,20 +533,51 @@ def main():
     crear_filtros(ventana)
     crear_entrada_nombre(ventana)
     crear_botones(ventana)
-
-    crear_texto_detalles(ventana)  # Primero el widget de texto detalles
-    crear_resultados(ventana)       # Luego el Treeview
-
+    crear_texto_detalles(ventana)
+    crear_resultados(ventana)
     actualizar_universidades()
-
     combo_universidad.bind("<<ComboboxSelected>>", lambda e: actualizar_programas())
     combo_programa.bind("<<ComboboxSelected>>", lambda e: actualizar_estudiantes())
     combo_estudiante.bind("<<ComboboxSelected>>", lambda e: None)
-
     combo_item_clave['values'] = ['(Todos)'] + list(items_clave.keys())
     combo_item_clave.set('(Todos)')
+    if not ruta_drive:
+        etiqueta_resumen.config(text="No se encontró la ruta del drive. No hay documentos cargados.")
 
     ventana.mainloop()
 
+def configurar_estilos():
+    style = ttk.Style()
+    style.theme_use('clam')
+    style.configure("Treeview",
+                    background="#f9f9f9",
+                    foreground="black",
+                    rowheight=28,
+                    fieldbackground="#f9f9f9",
+                    font=('Segoe UI', 11))
+    style.map('Treeview', background=[('selected', '#347083')], foreground=[('selected', 'white')])
+    style.configure('TButton', font=('Segoe UI', 12), padding=6)
+    
+    # Estilo personalizado para el botón de cerrar sesión
+    style.configure('CerrarSesion.TButton', 
+                    font=('Segoe UI', 11, 'bold'), 
+                    padding=8,
+                    background='#dc3545',
+                    foreground='white')
+    style.map('CerrarSesion.TButton',
+              background=[('active', '#c82333'), ('pressed', '#bd2130')],
+              foreground=[('active', 'white'), ('pressed', 'white')])
+    # Estilo para el botón de sincronización
+    style.configure('Sincronizar.TButton', 
+                    font=('Segoe UI', 11, 'bold'), 
+                    padding=8,
+                    background='#007bff',
+                    foreground='white')
+    style.map('Sincronizar.TButton',
+              background=[('active', '#0056b3'), ('pressed', '#004085')],
+              foreground=[('active', 'white'), ('pressed', 'white')])
+
 if __name__ == "__main__":
-    mostrar_login()
+    root = tk.Tk()
+    mostrar_login(root)
+    root.mainloop()
