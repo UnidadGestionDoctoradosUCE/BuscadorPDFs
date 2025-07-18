@@ -44,7 +44,7 @@ items_clave = {
     "2. Contrato de Beca": ["c.beca"],
     "3. Aval de Facultad": ["avalfacultad"],
     "4. Acción Personal": ["acciónpersonal"],
-    "5. Cédula y Papeleta de Votación": ["cédula"],
+    "5. Cédula y Papeleta de Votación": ["cédulaypapeleta"],
     "6. Pasaporte": ["pasaporte"],
     "7. Declaración Juramentada": ["declaraciónjuramentada"],
     "8. Solicitud de Pedido al Rectorado": ["solicitudpedidorectorado"],
@@ -53,7 +53,7 @@ items_clave = {
     "11. Matrícula": ["matrícula"],
     "12. Certificado de Aprobación Tesis": ["certificadoaprobación"],
     "13. Reporte de Notas Semestrales": ["reportenotas"],
-    "14. Línea de Investigación y Plan de Tesis": ["lineainvestigación"],
+    "14. Línea de Investigación y Plan de Tesis": ["lineamientoinvestigacióntesis"],
     "15. Informe de Avance de Tesis Emitido por el Tutor": ["informeavance"],
     "16. Correspondencia": ["correspondencia"],
     "17. Registro de Títulos SENESCYT": ["registrosenescyt"],
@@ -85,9 +85,15 @@ def cargar_documentos(ruta):
                 })
     return documentos
 
+def obtener_todas_universidades(ruta):
+    if not ruta or not os.path.exists(ruta):
+        return []
+    return sorted([nombre for nombre in os.listdir(ruta) if os.path.isdir(os.path.join(ruta, nombre))])
+
 def actualizar_universidades():
-    universidades = sorted(set(doc['universidad'] for doc in documentos_drive))
-    combo_universidad['values'] = ['(Todos)'] + universidades
+    global universidades_lista
+    universidades_lista = obtener_todas_universidades(ruta_doctorados)
+    combo_universidad['values'] = ['(Todos)'] + universidades_lista
     combo_universidad.set('(Todos)')
     actualizar_programas()
 
@@ -97,7 +103,6 @@ def actualizar_programas():
         programas = sorted(set(doc['programa'] for doc in documentos_drive))
     else:
         programas = sorted(set(doc['programa'] for doc in documentos_drive if doc['universidad'] == u))
-    
     combo_programa['values'] = ['(Todos)'] + programas
     combo_programa.set('(Todos)')
     actualizar_estudiantes()
@@ -105,46 +110,39 @@ def actualizar_programas():
 def actualizar_estudiantes():
     u = combo_universidad.get()
     p = combo_programa.get()
-
     estudiantes = set()
     for doc in documentos_drive:
         if (u == '(Todos)' or doc['universidad'] == u) and \
            (p == '(Todos)' or doc['programa'] == p):
             estudiantes.add(doc['estudiante'])
-
     combo_estudiante['values'] = ['(Todos)'] + sorted(estudiantes)
     combo_estudiante.set('(Todos)')
 
 def buscar():
     resultados.delete(*resultados.get_children())
     ruta_por_iid.clear()
-
     filtro_u = combo_universidad.get()
     filtro_p = combo_programa.get()
     filtro_e = combo_estudiante.get()
     filtro_nombre = entrada_nombre.get().strip().lower()
     filtro_item = combo_item_clave.get()
-
     encontrados = []
     for d in documentos_drive:
         if (filtro_u == '(Todos)' or d['universidad'] == filtro_u) and \
            (filtro_p == '(Todos)' or d['programa'] == filtro_p) and \
            (filtro_e == '(Todos)' or d['estudiante'] == filtro_e) and \
            (filtro_nombre in d['nombre']):
-            
             if filtro_item == '(Todos)':
                 encontrados.append(d)
             else:
                 alias_list = items_clave.get(filtro_item, [])
                 if any(alias.lower() in d['nombre'] for alias in alias_list):
                     encontrados.append(d)
-
     if not encontrados:
         messagebox.showinfo("No encontrado", "No se encontró ningún documento con los filtros aplicados.")
         etiqueta_resumen.config(text="Mostrando 0 documentos.")
         limpiar_detalles()
         return
-
     for i, doc in enumerate(encontrados):
         tag = 'evenrow' if i % 2 == 0 else 'oddrow'
         iid = resultados.insert("", "end", values=(
@@ -154,7 +152,6 @@ def buscar():
             doc['nombre'].title()
         ), tags=(tag,))
         ruta_por_iid[iid] = doc['ruta']
-
     etiqueta_resumen.config(text=f"Mostrando {len(encontrados)} documento(s).")
     limpiar_detalles()
 
@@ -324,16 +321,18 @@ def crear_botones(ventana):
 def crear_resultados(ventana):
     global resultados
     columnas = ("Universidad", "Programa", "Estudiante", "Nombre")
-    resultados = ttk.Treeview(ventana, columns=columnas, show="headings", height=25)  # más alto
-    resultados.pack(padx=20, pady=10, fill="both", expand=True)
-
+    frame_resultados = tk.Frame(ventana)
+    frame_resultados.pack(padx=20, pady=10, fill="both", expand=True)
+    scrollbar = tk.Scrollbar(frame_resultados, orient="vertical")
+    resultados = ttk.Treeview(frame_resultados, columns=columnas, show="headings", height=25, yscrollcommand=scrollbar.set)
+    scrollbar.config(command=resultados.yview)
+    scrollbar.pack(side="right", fill="y")
+    resultados.pack(side="left", fill="both", expand=True)
     for col in columnas:
         resultados.heading(col, text=col)
         resultados.column(col, anchor="center", width=200)
-    
     resultados.tag_configure('oddrow', background="white")
     resultados.tag_configure('evenrow', background="#d3d3d3")
-
     resultados.bind("<<TreeviewSelect>>", mostrar_detalles)
     resultados.bind("<Double-1>", abrir_pdf_event)
 
@@ -789,7 +788,6 @@ def main(ventana, skip_clear=False):
     crear_texto_detalles(ventana)
     crear_resultados(ventana)
     actualizar_universidades()
-    combo_universidad.bind("<<ComboboxSelected>>", lambda e: actualizar_programas())
     combo_programa.bind("<<ComboboxSelected>>", lambda e: actualizar_estudiantes())
     combo_estudiante.bind("<<ComboboxSelected>>", lambda e: None)
     combo_item_clave['values'] = ['(Todos)'] + list(items_clave.keys())
@@ -809,6 +807,17 @@ def configurar_estilos():
                     font=('Segoe UI', 11))
     style.map('Treeview', background=[('selected', '#347083')], foreground=[('selected', 'white')])
     style.configure('TButton', font=('Segoe UI', 12), padding=6)
+    
+    style.configure('TCombobox', 
+                    font=('Segoe UI', 11),
+                    fieldbackground='white',
+                    background='white',
+                    selectbackground='#347083',
+                    selectforeground='white')
+    style.map('TCombobox',
+              fieldbackground=[('readonly', 'white')],
+              selectbackground=[('readonly', '#347083')],
+              selectforeground=[('readonly', 'white')])
     
     style.configure('CerrarSesion.TButton', 
                     font=('Segoe UI', 11, 'bold'), 
@@ -833,6 +842,42 @@ def crear_texto_detalles_oficio(ventana):
     texto_detalles_oficio = tk.Text(ventana, height=4, width=100, font=("Segoe UI", 11), relief="solid", bd=1)
     texto_detalles_oficio.pack(padx=40, pady=(0, 25), fill='x')
     texto_detalles_oficio.config(state="disabled")
+
+universidades_lista = []
+def abrir_selector_universidad():
+    global universidades_lista
+    top = tk.Toplevel()
+    top.title("Seleccionar Universidad")
+    top.geometry("350x350")
+    top.transient()
+    top.grab_set()
+    tk.Label(top, text="Selecciona una universidad:", font=("Segoe UI", 12, "bold")).pack(pady=8)
+    frame_list = tk.Frame(top)
+    frame_list.pack(fill="both", expand=True, padx=10, pady=10)
+    scrollbar = tk.Scrollbar(frame_list)
+    scrollbar.pack(side="right", fill="y")
+    listbox = tk.Listbox(frame_list, font=("Segoe UI", 11), yscrollcommand=scrollbar.set, selectmode="single")
+    for u in ["(Todos)"] + universidades_lista:
+        listbox.insert("end", u)
+    listbox.pack(side="left", fill="both", expand=True)
+    scrollbar.config(command=listbox.yview)
+    # Selecciona el actual
+    try:
+        idx = ["(Todos)"] + universidades_lista.index(universidad_seleccionada.get())
+        listbox.selection_set(idx)
+        listbox.see(idx)
+    except:
+        pass
+    def seleccionar():
+        sel = listbox.curselection()
+        if sel:
+            universidad_seleccionada.set(listbox.get(sel[0]))
+            top.destroy()
+            actualizar_programas()
+    btn_sel = tk.Button(top, text="Seleccionar", font=("Segoe UI", 11), command=seleccionar)
+    btn_sel.pack(pady=8)
+    listbox.bind('<Double-1>', lambda e: seleccionar())
+    listbox.bind('<Return>', lambda e: seleccionar())
 
 if __name__ == "__main__":
     root = tk.Tk()
